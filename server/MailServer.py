@@ -1,10 +1,10 @@
-from default import SERVER_PORT
 import socket
 import threading
+import select
+from default import SERVER_PORT
 from ClientsCollection import *
 from Client import *
 from state import *
-import select
 from MailServer import *
 from SMTP_FSM import *
 

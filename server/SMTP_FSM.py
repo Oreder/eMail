@@ -1,7 +1,7 @@
+import socket
 from state import *
 from transitions import Machine
 from transitions.extensions import GraphMachine as gMachine
-import socket
 
 class SMTP_FSM(object):
     def __init__(self, name):

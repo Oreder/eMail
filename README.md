@@ -2,6 +2,12 @@
 Environment requirements:
 + OS: Ubuntu 18.04 x64
 + Python: 3.7.5
++ Evaluation ([install](https://rc.partners.org/kb/article/2702) | [eMail setup](https://askubuntu.com/questions/51467/how-do-i-setup-an-email-account-in-evolution))
+
+### How to run
+```sh
+    python3 main.py
+```
 
 ## 1. Maildir guide
 Currently, maildir is a directory that stores email messages as files. Maildir works with Courier, a mail server that provides folders and quotas for the email accounts on your hosting account.

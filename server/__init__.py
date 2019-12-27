@@ -4,5 +4,4 @@ from ClientSocket import *
 from Client import *
 from MailServer import *
 from ClientsCollection import *
-from utils import *
 from default import *

@@ -1,10 +1,11 @@
 import socket
+import os
+import uuid
 from SMTP_FSM import *
 from ClientSocket import *
 from default import SERVER_DOMAIN, DEFAULT_SUPR_DIR, DEFAULT_USER_DIR
 from state import RE_EMAIL_ADDRESS
-import os
-import uuid
+
 
 class Client(object):
     def __init__(self, socket:ClientSocket):
