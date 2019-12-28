@@ -9,8 +9,8 @@ new_socket = socket.create_connection(("smtp.yandex.ru", 465), 5,
                                      None)
 new_socket =context.wrap_socket(new_socket,
                                       server_hostname="smtp.yandex.ru")
-print( list( os.walk('./../maildir/') ) )
-f = open('./../maildir/1', 'r')
+print( list( os.walk('./../pst/maildir/') ) )
+f = open('./../pst/maildir/1', 'r')
 fileLine = f.readline()
 print(fileLine)
 print(new_socket.recv())#220
