@@ -1,12 +1,25 @@
 import socket
 import threading
 import select
-from default import SERVER_PORT
-from ClientsCollection import *
-from Client import *
+from server_config import SERVER_PORT, READ_TIMEOUT
+from client_collection import ClientsCollection
+from client import Client
+from client_socket import ClientSocket
 from state import *
-from MailServer import *
-from SMTP_FSM import *
+
+def thread_socket(serv):
+    while True:
+        client_sockets = serv.clients.sockets()
+        rfds, wfds, errfds = select.select([serv.sock] + client_sockets, client_sockets, [], 5)
+        for fds in rfds:
+            if fds is serv.sock:
+                connection, client_address = fds.accept()
+                client = Client(socket=ClientSocket(connection, client_address))
+                serv.clients[connection] = client
+            else:
+                serv.handle_client_read(serv.clients[fds])
+        for fds in wfds:
+            serv.handle_client_write(serv.clients[fds])
 
 class MailServer(object):
     def __init__(self, host='localhost', port=SERVER_PORT, threads=5):
@@ -27,12 +40,19 @@ class MailServer(object):
         self.sock.bind(server_address)
         self.sock.listen(0)
 
-    def serve_forever(self):
+    def serve(self, blocking=True):
+        '''
+
+        :param blocking: daemon=True means all threads finish when main thread will be finished
+        so we should do nothing with blocking=True or other actions in main thread
+        :return: None
+        '''
         for i in range(self.threads_cnt):
-            thread_sock = threading.Thread(target=thread_socket, args=(self, i,))
+            thread_sock = threading.Thread(target=thread_socket, args=(self,))
             thread_sock.daemon = True
+            thread_sock.name = 'Working Thread {}'.format(i)
             thread_sock.start()
-        while True:
+        while blocking:
             pass
         
     def handle_client_read(self, cl:Client):
@@ -55,23 +75,21 @@ class MailServer(object):
             if HELO_matched:
                 command     = HELO_matched.group(1)
                 domain      = HELO_matched.group(2) or "unknown"
-                cl.mail     = f"{command}:<{domain}>\r\n"
-                cl.domain   = domain
+                cl.mail.helo_command     = command
+                cl.mail.domain   = domain
                 cl.machine.HELO(cl.socket, cl.socket.address, domain)
                 return
         elif current_state == MAIL_FROM_STATE:
             MAIL_FROM_matched = re.search(MAIL_FROM_pattern, line)
             if MAIL_FROM_matched:
-                cl.mail_from    = MAIL_FROM_matched.group(1)
-                cl.mail        += f"FROM:<{cl.mail_from}>\r\n"
-                cl.machine.MAIL_FROM(cl.socket, cl.mail_from)
+                cl.mail.from_ = MAIL_FROM_matched.group(1)
+                cl.machine.MAIL_FROM(cl.socket, cl.mail.from_)
                 return
         elif current_state == RCPT_TO_STATE:
             RCPT_TO_matched = re.search(RCPT_TO_pattern, line)
             if RCPT_TO_matched:
                 mail_to         = RCPT_TO_matched.group(1)
-                cl.mail        += f"TO:<{mail_to}>\r\n\r\n"
-                cl.mail_to      = mail_to
+                cl.mail.to      = mail_to
                 cl.machine.RCPT_TO(cl.socket, mail_to)
                 return
         elif current_state == DATA_STATE:     # TODO: as fsm?
@@ -80,16 +98,16 @@ class MailServer(object):
             if DATA_start_matched:          # TODO: case when data additional match data_start
                 data = DATA_start_matched.group(1)
                 if data:
-                    cl.mail += data
+                    cl.mail.body += data
                 cl.machine.DATA_start(cl.socket)
             elif DATA_end_matched:          # TODO: and already started
                 data = DATA_end_matched.group(1)
                 if data:
-                    cl.mail += data
+                    cl.mail.body += data
                 cl.machine.DATA_end(cl.socket)
-                cl.mail_to_file()
+                cl.mail.to_file()
             else:                           # TODO: only if started
-                cl.mail += line
+                cl.mail.body += line
                 cl.machine.DATA_additional(cl.socket)
             return
         elif current_state == QUIT_STATE:
@@ -111,11 +129,11 @@ class MailServer(object):
         if current_state == GREETING_WRITE_STATE:
             cl.machine.GREETING_write(cl.socket)
         elif current_state == HELO_WRITE_STATE:
-            cl.machine.HELO_write(cl.socket, cl.socket.address, cl.domain)
+            cl.machine.HELO_write(cl.socket, cl.socket.address, cl.mail.domain)
         elif current_state == MAIL_FROM_WRITE_STATE:
-            cl.machine.MAIL_FROM_write(cl.socket, cl.mail_from)
+            cl.machine.MAIL_FROM_write(cl.socket, cl.mail.from_)
         elif current_state == RCPT_TO_WRITE_STATE:
-            cl.machine.RCPT_TO_write(cl.socket, cl.mail_to)
+            cl.machine.RCPT_TO_write(cl.socket, cl.mail.to)
         elif current_state == DATA_WRITE_STATE:
             cl.machine.DATA_start_write(cl.socket)
         elif current_state == DATA_END_WRITE_STATE:
@@ -131,29 +149,3 @@ class MailServer(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.sock.close()
-
-def thread_socket(serv, name):
-    while True:
-        client_sockets = serv.clients.sockets()
-        rfds, wfds, errfds = select.select([serv.sock] + client_sockets, client_sockets, [], 100)
-        if len(rfds) != 0:
-            for fds in rfds:
-                if fds is serv.sock:
-                    connection, client_address = fds.accept()
-                    client = Client(socket=ClientSocket(connection, client_address))
-                    client.machine.GREETING_write_handler(client.socket)
-                    serv.clients[connection] = client
-                else:
-                    # print('Thread {}'.format(name))
-                    serv.handle_client_read(serv.clients[fds])
-        if len(wfds) != 0:
-            for fds in rfds:
-                if fds is serv.sock:
-                    # connection, client_address = fds.accept()
-                    # client = Client(socket=ClientSocket(connection, client_address))
-                    # client.machine.GREETING(client.socket)
-                    # serv.clients[connection] = client
-                    pass
-                else:
-                    # print('Thread {}'.format(name))
-                    serv.handle_client_write(serv.clients[fds])

@@ -1,0 +1,24 @@
+HELO:<localhost>
+FROM:<binh@local.local>
+TO:<kate@mun.de>
+
+Message-ID: <a0c316ac60021dd73f11fc75909d169660f3d35e.camel@local.local>
+Subject: Bigmail
+From: sa <binh@local.local>
+To: kate@mun.de
+Date: Sat, 28 Dec 2019 18:32:41 +0300
+Content-Type: multipart/mixed; boundary="=-2o1KU2pGxscVIDpWOqCe"
+X-Mailer: Evolution 3.28.5-0ubuntu0.18.04.1 
+Mime-Version: 1.0
+
+
+--=-2o1KU2pGxscVIDpWOqCe
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+
+--=20
+sa <binh@local.local>
+
+--=-2o1KU2pGxscVIDpWOqCe--
+
