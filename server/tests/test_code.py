@@ -54,7 +54,7 @@ def test_send_mail_return():
         
         assert len(errs) == 0
 
-def test_email_to_multiple_recepients():
+def test_email_to_multiple_recipients():
     PORT = randrange(16000, 40000)
     with MailServer(port=PORT) as server:
         server.serve(blocking=False)
