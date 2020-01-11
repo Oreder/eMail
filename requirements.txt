@@ -1,3 +1,7 @@
 pytest
+coverage
+pytest-cov
 pygraphviz
 transitions
+dnspython
+PyPDF2
