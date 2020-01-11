@@ -32,7 +32,7 @@ CODE TRANSFER NOTE: The quoted-printable and base64 converters are designed so t
 2. SMTP protocol [Explained](https://www.afternerd.com/blog/smtp/) (How Email works?)
 
 ## TODOs
-+ Multiple recipients (80%)
-+ Graceful shutdown
-+ Big mails (40%)
-+ Tests (80%)
++ Multiple recipients (100%)
++ Graceful shutdown (!)
++ Big mails (90%)
++ Tests (100%)
