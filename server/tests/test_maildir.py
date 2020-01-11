@@ -24,7 +24,7 @@ def test_maildir_oversize():
     _mail = Mail(to=emails)
     assert _mail.to_file()[0] == 452
 
-def test_maildir_oversize():
+def test_maildir_normal():
     emails = ["a@b.c", "A@b.c", "Aa@Bb.Cc"]
     _mail = Mail(to=emails)
 
