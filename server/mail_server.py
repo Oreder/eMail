@@ -61,7 +61,8 @@ class MailServer(object):
             self.logger.log(level=logging.WARNING, msg=f'Timeout on client read')
             self.sock.close()
             return
-
+        
+        # print(line)
         current_state = cl.machine.state
 
         if current_state == HELO_STATE:
@@ -73,64 +74,63 @@ class MailServer(object):
                 cl.mail.domain   = domain
                 cl.machine.HELO(cl.socket, cl.socket.address, domain)
                 return
+        
         elif current_state == MAIL_FROM_STATE:
             MAIL_FROM_matched = re.search(MAIL_FROM_pattern, line)
             if MAIL_FROM_matched:
                 cl.mail.from_ = MAIL_FROM_matched.group(1)
                 cl.machine.MAIL_FROM(cl.socket, cl.mail.from_)
                 return
+        
         elif current_state == RCPT_TO_STATE:
-            RCPT_TO_matched = re.search(RCPT_TO_pattern, line)
-            if RCPT_TO_matched:
-                mail_to         = RCPT_TO_matched.group(1)
-                cl.mail.to.append(mail_to)
-                cl.machine.RCPT_TO(cl.socket, mail_to)
-                return
+            mail_to = re.findall(RCPT_TO_pattern, line)
+            
+            if len(mail_to) > 0:
+                for m in mail_to:
+                    cl.mail.to.append(m)
+            cl.machine.RCPT_TO(cl.socket, mail_to)
+            return         
+
         elif current_state == DATA_STATE:
-            if cl.data_start_already_matched:
+            if not cl.data_start_already_matched:
+                # check other recepients
+                mail_to = re.findall(RCPT_TO_pattern, line)
+                if len(mail_to) > 0:
+                    for m in mail_to:
+                        cl.mail.to.append(m)
+                    cl.machine.ANOTHER_RECEPIENT(cl.socket, mail_to)
+                else:
+                    cl.data_start_already_matched = True
+                    DATA_start_matched = re.search(DATA_start_pattern, line)
+                    if DATA_start_matched:
+                        data = DATA_start_matched.group(1)
+                        if data:
+                            cl.mail.body += data
+                        cl.machine.DATA_start(cl.socket)    # Starting
+                return
+            else:
                 DATA_end_matched = re.search(DATA_end_pattern, line)
                 if DATA_end_matched:
                     data = DATA_end_matched.group(1)
                     if data:
                         cl.mail.body += data
                     cl.machine.DATA_end(cl.socket)
-                    cl.mail.to_file()
-                    cl.data_start_already_matched=False
-                else:# Additional data case
-                    cl.mail.body += line
-                    cl.machine.DATA_additional(cl.socket)
-            else:
-                # check another recepient firstly
-                RCPT_TO_matched = re.search(RCPT_TO_pattern, line)
-                if RCPT_TO_matched:
-                    mail_to = RCPT_TO_matched.group(1)
-                    cl.mail.to.append(mail_to)
-                    cl.machine.ANOTHER_RECEPIENT(cl.socket, mail_to)
-                    return
-                # data start secondly
-                DATA_start_matched = re.search(DATA_start_pattern, line)
-                if DATA_start_matched:
-                    data = DATA_start_matched.group(1)
-                    if data:
-                        cl.mail.body += data
-                    cl.machine.DATA_start(cl.socket)
-                    cl.data_start_already_matched = True
+                    cl.mail.to_file()           # Ending
                 else:
-                    pass#TODO: incorrect command to message to client
-
-            return
+                    cl.mail.body += line        # Processing
+                    cl.machine.DATA_additional(cl.socket)
+                return
+        
         QUIT_matched = re.search(QUIT_pattern, line)
         if QUIT_matched:
             cl.machine.QUIT(cl.socket)
             return
+        
         # Transition possible from any states
         RSET_matched = re.search(RSET_pattern, line)
         if RSET_matched:
             cl.machine.RSET(cl.socket)
-        else:
-            pass
-        # cl.socket.send(f'500 Unrecognised command {line}\n'.encode())
-        # print('500 Unrecognised command')
+            return
 
     def handle_client_write(self, cl:Client):
         current_state = cl.machine.state

@@ -1,0 +1,4 @@
+1. states correct handling 
+2. Big mail (attach?), 15 mb ok for testing
+3. logging with queue+thread/proccess to file
+4. graceful shutdown

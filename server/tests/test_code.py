@@ -4,6 +4,10 @@ from smtplib import SMTP
 import time
 import datetime
 from random import randrange
+from email import encoders
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 try:
     from server.mail_server import MailServer
     from server.state import HELO_pattern, MAIL_FROM_pattern, DATA_start_pattern, DATA_end_pattern, RCPT_TO_pattern
@@ -16,8 +20,9 @@ except (ModuleNotFoundError, ImportError) as e:
     from mail_server import MailServer
     from state import HELO_pattern, MAIL_FROM_pattern, DATA_start_pattern, DATA_end_pattern, RCPT_TO_pattern
 
+
 def test_connection_to_server():
-    PORT = randrange(1000, 40000)
+    PORT = randrange(16000, 40000)
     with MailServer(port=PORT) as server:
         server.serve(blocking=False)
         
@@ -27,7 +32,7 @@ def test_connection_to_server():
         assert code in range(200, 300)  # successful
 
 def test_send_mail_return():
-    PORT = randrange(1000, 40000)
+    PORT = randrange(16000, 40000)
     with MailServer(port=PORT) as server:
         server.serve(blocking=False)
         
@@ -49,8 +54,8 @@ def test_send_mail_return():
         
         assert len(errs) == 0
 
-def test_email_to_multi_recepients():
-    # PORT = randrange(1000, 40000)
+def test_email_to_multiple_recepients():
+    # PORT = randrange(16000, 40000)
     # with MailServer(port=PORT) as server:
     #     server.serve(blocking=False)
         
@@ -79,14 +84,9 @@ def test_email_to_multi_recepients():
     #     """
     #     assert len(errs) == 0
     pass
-        
-from email import encoders
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
 
 def test_send_big_mail_return():
-    # PORT = randrange(1000, 40000)
+    # PORT = randrange(16000, 40000)
     # with MailServer(port=PORT) as server:
     #     server.serve(blocking=False)
         
