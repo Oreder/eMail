@@ -27,6 +27,9 @@ CODE TRANSFER NOTE: The quoted-printable and base64 converters are designed so t
     cd server && pytest-3
 ```
 
+# Reference
+1. J. Klensin, Network Working Group (October 2008) ([DRAFT STANDARD](https://tools.ietf.org/html/rfc5321))
+
 ## TODO
 + Multiple recepients
 + Graceful shutdown
