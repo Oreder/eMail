@@ -2,14 +2,14 @@
 Environment requirements:
 + OS: Ubuntu 18.04 x64
 + Python: 3.7.5
-+ Evaluation ([install](https://rc.partners.org/kb/article/2702) | [eMail setup](https://askubuntu.com/questions/51467/how-do-i-setup-an-email-account-in-evolution))
++ Evolution ([install](https://rc.partners.org/kb/article/2702) | [eMail setup](https://askubuntu.com/questions/51467/how-do-i-setup-an-email-account-in-evolution))
 
 ### How to run
 ```sh
     python3 main.py
 ```
 
-## 1. Maildir guide
+## Maildir guide
 Currently, maildir is a directory that stores email messages as files. Maildir works with Courier, a mail server that provides folders and quotas for the email accounts on your hosting account.
 
 The folders inside the mail directory are subdirectories such as *.Drafts*, *.Trash* and *.Sent*. Each of these folders contain three additional subdirectories called *tmp*, *new* and *cur*.
@@ -27,11 +27,12 @@ CODE TRANSFER NOTE: The quoted-printable and base64 converters are designed so t
     cd server && pytest-3
 ```
 
-# Reference
+# References
 1. J. Klensin, Network Working Group (October 2008) ([DRAFT STANDARD](https://tools.ietf.org/html/rfc5321))
+2. SMTP protocol [Explained](https://www.afternerd.com/blog/smtp/) (How Email works?)
 
-## TODO
-+ Multiple recepients
+## TODOs
++ Multiple recipients (80%)
 + Graceful shutdown
-+ Big emails
-+ Tests
++ Big mails (40%)
++ Tests (80%)

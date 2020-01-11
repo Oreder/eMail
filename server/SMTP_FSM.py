@@ -12,25 +12,28 @@ class SMTP_FSM(object):
         self.machine = self.init_machine()
 
         # self.init_transition('GREETING'       , GREETING_STATE , GREETING_WRITE_STATE )
-        self.init_transition('HELO'           , HELO_STATE     , HELO_WRITE_STATE     )
-        self.init_transition('MAIL_FROM'      , MAIL_FROM_STATE, MAIL_FROM_WRITE_STATE)
-        self.init_transition('RCPT_TO'        , RCPT_TO_STATE  , RCPT_TO_WRITE_STATE  )
-        self.init_transition('DATA_start'     , DATA_STATE     , DATA_WRITE_STATE     )
-        self.init_transition('DATA_additional', DATA_STATE     , DATA_STATE           )
-        self.init_transition('DATA_end'       , DATA_STATE     , DATA_END_WRITE_STATE )
-        self.init_transition('QUIT'           , '*'     , QUIT_WRITE_STATE     )
+        self.init_transition('GREETING_write' , GREETING_WRITE_STATE , HELO_STATE           )
+        
+        self.init_transition('HELO'           , HELO_STATE           , HELO_WRITE_STATE     )
+        self.init_transition('HELO_write'     , HELO_WRITE_STATE     , MAIL_FROM_STATE      )
 
-        self.init_transition('GREETING_write' , GREETING_WRITE_STATE , HELO_STATE     )
-        self.init_transition('HELO_write'     , HELO_WRITE_STATE     , MAIL_FROM_STATE)
-        self.init_transition('MAIL_FROM_write', MAIL_FROM_WRITE_STATE, RCPT_TO_STATE  )
-        self.init_transition('RCPT_TO_write'  , RCPT_TO_WRITE_STATE  , DATA_STATE     )
-        self.init_transition('ANOTHER_RECEPIENT', DATA_STATE  , RCPT_TO_STATE)
-        self.init_transition('DATA_start_write',DATA_WRITE_STATE     , DATA_STATE     )
-        self.init_transition('DATA_end_write' , DATA_END_WRITE_STATE , QUIT_STATE     )
-        self.init_transition('QUIT_write'     , QUIT_WRITE_STATE     , FINISH_STATE   )
+        self.init_transition('MAIL_FROM'      , MAIL_FROM_STATE      , MAIL_FROM_WRITE_STATE)
+        self.init_transition('MAIL_FROM_write', MAIL_FROM_WRITE_STATE, RCPT_TO_STATE        )
 
-        self.init_transition('RSET'      , source='*', destination=HELO_WRITE_STATE)
-        self.init_transition('RSET_write', source='*', destination=HELO_STATE      )
+        self.init_transition('RCPT_TO'        , RCPT_TO_STATE        , RCPT_TO_WRITE_STATE  )
+        self.init_transition('RCPT_TO_write'  , RCPT_TO_WRITE_STATE  , DATA_STATE           )
+        self.init_transition('ANOTHER_RECEPIENT', DATA_STATE         , RCPT_TO_STATE        )
+        
+        self.init_transition('DATA_start'     , DATA_STATE           , DATA_WRITE_STATE     )
+        self.init_transition('DATA_start_write',DATA_WRITE_STATE     , DATA_STATE           )
+        self.init_transition('DATA_additional', DATA_STATE           , DATA_STATE           )
+        self.init_transition('DATA_end'       , DATA_STATE           , DATA_END_WRITE_STATE )
+        self.init_transition('DATA_end_write' , DATA_END_WRITE_STATE , QUIT_STATE           )
+
+        self.init_transition('QUIT'           , '*'                  , QUIT_WRITE_STATE     )
+        self.init_transition('QUIT_write'     , QUIT_WRITE_STATE     , FINISH_STATE         )
+        self.init_transition('RSET'           , source='*', destination=HELO_WRITE_STATE    )
+        self.init_transition('RSET_write'     , source='*', destination=HELO_STATE          )
 
     def init_machine(self):
         return gMachine(
