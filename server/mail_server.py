@@ -1,32 +1,23 @@
 import socket
 import threading
+import logging
 import select
-from server_config import SERVER_PORT, READ_TIMEOUT
+from server_config import SERVER_PORT, READ_TIMEOUT, LOG_FILES_DIR
 from client_collection import ClientsCollection
 from client import Client
 from client_socket import ClientSocket
 from state import *
+from common.custom_logger_proc import QueueProcessLogger
 
-def thread_socket(serv):
-    while True:
-        client_sockets = serv.clients.sockets()
-        rfds, wfds, errfds = select.select([serv.sock] + client_sockets, client_sockets, [], 5)
-        for fds in rfds:
-            if fds is serv.sock:
-                connection, client_address = fds.accept()
-                client = Client(socket=ClientSocket(connection, client_address))
-                serv.clients[connection] = client
-            else:
-                serv.handle_client_read(serv.clients[fds])
-        for fds in wfds:
-            serv.handle_client_write(serv.clients[fds])
 
 class MailServer(object):
-    def __init__(self, host='localhost', port=SERVER_PORT, threads=5):
+    def __init__(self, host='localhost', port=2556, threads=5, logdir='logs'):
         self.host = host
         self.port = port
         self.clients = ClientsCollection()
         self.threads_cnt = threads
+        self.logdir = logdir
+        self.logger = QueueProcessLogger(filename=f'{logdir}/log.log')
 
     def __enter__(self):
         self.socket_init()
@@ -39,6 +30,7 @@ class MailServer(object):
         server_address = (self.host, self.port)
         self.sock.bind(server_address)
         self.sock.listen(0)
+        self.logger.log(level=logging.DEBUG, msg=f'Server socket initiated on port: {self.port}')
 
     def serve(self, blocking=True):
         '''
@@ -52,21 +44,23 @@ class MailServer(object):
             thread_sock.daemon = True
             thread_sock.name = 'Working Thread {}'.format(i)
             thread_sock.start()
+        self.logger.log(level=logging.DEBUG, msg=f'Started {self.threads_cnt} threads')
+        # useless!
         while blocking:
             pass
         
     def handle_client_read(self, cl:Client):
+        '''
+         check possible states from cl.machine.state
+         match exact state with re patterns
+         call handler for this state
+        '''
         try:
-            line = cl.socket.readline()
+            line = cl.socket.readbytes()
         except socket.timeout:
+            self.logger.log(level=logging.WARNING, msg=f'Timeout on client read')
             self.sock.close()
             return
-        
-        print(line)
-        
-        # check possible states from cl.machine.state
-        # match exact state with re patterns
-        # call handler for this state
 
         current_state = cl.machine.state
 
@@ -89,32 +83,46 @@ class MailServer(object):
             RCPT_TO_matched = re.search(RCPT_TO_pattern, line)
             if RCPT_TO_matched:
                 mail_to         = RCPT_TO_matched.group(1)
-                cl.mail.to      = mail_to
+                cl.mail.to.append(mail_to)
                 cl.machine.RCPT_TO(cl.socket, mail_to)
                 return
-        elif current_state == DATA_STATE:     # TODO: as fsm?
-            DATA_start_matched = re.search(DATA_start_pattern, line)
-            DATA_end_matched = re.search(DATA_end_pattern, line)
-            if DATA_start_matched:          # TODO: case when data additional match data_start
-                data = DATA_start_matched.group(1)
-                if data:
-                    cl.mail.body += data
-                cl.machine.DATA_start(cl.socket)
-            elif DATA_end_matched:          # TODO: and already started
-                data = DATA_end_matched.group(1)
-                if data:
-                    cl.mail.body += data
-                cl.machine.DATA_end(cl.socket)
-                cl.mail.to_file()
-            else:                           # TODO: only if started
-                cl.mail.body += line
-                cl.machine.DATA_additional(cl.socket)
+        elif current_state == DATA_STATE:
+            if cl.data_start_already_matched:
+                DATA_end_matched = re.search(DATA_end_pattern, line)
+                if DATA_end_matched:
+                    data = DATA_end_matched.group(1)
+                    if data:
+                        cl.mail.body += data
+                    cl.machine.DATA_end(cl.socket)
+                    cl.mail.to_file()
+                    cl.data_start_already_matched=False
+                else:# Additional data case
+                    cl.mail.body += line
+                    cl.machine.DATA_additional(cl.socket)
+            else:
+                # check another recepient firstly
+                RCPT_TO_matched = re.search(RCPT_TO_pattern, line)
+                if RCPT_TO_matched:
+                    mail_to = RCPT_TO_matched.group(1)
+                    cl.mail.to.append(mail_to)
+                    cl.machine.ANOTHER_RECEPIENT(cl.socket, mail_to)
+                    return
+                # data start secondly
+                DATA_start_matched = re.search(DATA_start_pattern, line)
+                if DATA_start_matched:
+                    data = DATA_start_matched.group(1)
+                    if data:
+                        cl.mail.body += data
+                    cl.machine.DATA_start(cl.socket)
+                    cl.data_start_already_matched = True
+                else:
+                    pass#TODO: incorrect command to message to client
+
             return
-        elif current_state == QUIT_STATE:
-            QUIT_matched = re.search(QUIT_pattern, line)
-            if QUIT_matched:
-                cl.machine.QUIT(cl.socket)
-        
+        QUIT_matched = re.search(QUIT_pattern, line)
+        if QUIT_matched:
+            cl.machine.QUIT(cl.socket)
+            return
         # Transition possible from any states
         RSET_matched = re.search(RSET_pattern, line)
         if RSET_matched:
@@ -137,7 +145,7 @@ class MailServer(object):
         elif current_state == DATA_WRITE_STATE:
             cl.machine.DATA_start_write(cl.socket)
         elif current_state == DATA_END_WRITE_STATE:
-            cl.machine.DATA_end_write(cl.socket)
+            cl.machine.DATA_end_write(cl.socket, cl.mail.file_path)
         elif current_state == QUIT_WRITE_STATE:
             cl.machine.QUIT_write(cl.socket)
             self.clients.pop(cl.socket.connection)
@@ -149,3 +157,23 @@ class MailServer(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.sock.close()
+
+def thread_socket(serv:MailServer):
+    try:
+        while True:
+            client_sockets = serv.clients.sockets()
+            rfds, wfds, errfds = select.select([serv.sock] + client_sockets, client_sockets, [], 5)
+            for fds in rfds:
+                if fds is serv.sock:
+                    try:
+                        connection, client_address = fds.accept()
+                        client = Client(socket=ClientSocket(connection, client_address), logdir=serv.logdir)
+                        serv.clients[connection] = client
+                    except socket.timeout:
+                        pass
+                else:
+                    serv.handle_client_read(serv.clients[fds])
+            for fds in wfds:
+                serv.handle_client_write(serv.clients[fds])
+    except ValueError:
+        pass

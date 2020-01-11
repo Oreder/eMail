@@ -6,14 +6,13 @@ class ClientSocket(object):
         self.connection = connection
         self.address = address
 
-    def readline(self):
+    def readbytes(self):
         # TODO: handle long message
         bufferSize = 4096
         
         # add timeout to the connection if no commands are recieved
         self.connection.settimeout(READ_TIMEOUT)
-        # buffer = self.connection.recv(bufferSize).decode()
-        # # print(buffer)
+        
         # # remove timeout if commands are recieved
         # self.connection.settimeout(None)
         # buffering = True
@@ -33,7 +32,18 @@ class ClientSocket(object):
         #         else:
         #             buffer += more
 
+        # buffering = True
+        # buffer = f''
+        # while buffering:
+        #     data = self.connection.recv(bufferSize).decode()
+        #     if not more:
+        #         buffering = False
+        #     else:
+        #         buffer += more
+        # return buffer
+
         return self.connection.recv(bufferSize).decode()
+        
 
     def send(self, *args, **kwargs):
         return self.connection.send(*args, **kwargs)
