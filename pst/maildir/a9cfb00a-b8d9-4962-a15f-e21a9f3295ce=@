@@ -1,0 +1,11 @@
+HELO:<[127.0.1.1]>
+FROM:<MusicDevelop@yandex.ru>
+TO:<cappyru@gmail.com>
+
+FROM: v <vitalyven@mailhog.local>
+Reply-To: vitalyven@mailhog.local
+To: uyiu@yandex.ru
+Date: Sat, 07 Dec 2019 14:50:06 +0300
+Subject: тема34
+
+Hello Jeeno

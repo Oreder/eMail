@@ -1,9 +1,8 @@
 import os
 SERVER_DOMAIN = 'superserver.local'
 SERVER_PORT   = 2556
-READ_TIMEOUT  = 40
-PROCESSES_CNT  = None
-THREADS_CNT  = 5
+READ_TIMEOUT  = 5
+PROCESSES_CNT  = 5
 MAX_RECIPIENTS = 100
 
 DEFAULT_SUPR_DIR = os.path.join(os.path.dirname(__file__), f'../pst/local/')

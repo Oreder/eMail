@@ -1,5 +1,5 @@
 import socket
-import threading
+import multiprocessing
 import logging
 import select
 from server_config import SERVER_PORT, READ_TIMEOUT, LOG_FILES_DIR
@@ -9,13 +9,13 @@ from client_socket import ClientSocket
 from state import *
 from common.custom_logger_proc import QueueProcessLogger
 
-
 class MailServer(object):
-    def __init__(self, host='localhost', port=2556, threads=5, logdir='logs'):
+    def __init__(self, host='localhost', port=2556, processes=5, logdir='logs'):
         self.host = host
         self.port = port
         self.clients = ClientsCollection()
-        self.threads_cnt = threads
+        self.processes_cnt = processes
+        self.processes = []
         self.logdir = logdir
         self.logger = QueueProcessLogger(filename=f'{logdir}/log.log')
 
@@ -34,20 +34,24 @@ class MailServer(object):
 
     def serve(self, blocking=True):
         '''
-
-        :param blocking: daemon=True means all threads finish when main thread will be finished
+        :param blocking: processes finish when main process will be finished (exit context manager)
         so we should do nothing with blocking=True or other actions in main thread
         :return: None
         '''
-        for i in range(self.threads_cnt):
-            thread_sock = threading.Thread(target=thread_socket, args=(self,))
-            thread_sock.daemon = True
-            thread_sock.name = 'Working Thread {}'.format(i)
-            thread_sock.start()
-        self.logger.log(level=logging.DEBUG, msg=f'Started {self.threads_cnt} threads')
-        # useless!
+        for i in range(self.processes_cnt):
+            p = WorkingProcess(self)
+            # p.daemon = True #not work with processes, kill it join it in __exit__()
+            self.processes.append(p)
+            p.name = 'Working Process {}'.format(i)
+            p.start()
+        self.logger.log(level=logging.DEBUG, msg=f'Started {self.processes_cnt} processes')
+        #TODO not while True, make it wait signal, without do nothing, it utilize CPU on 100%
+
         while blocking:
-            pass
+            try:
+                pass
+            except KeyboardInterrupt as e:
+                self.__exit__(type(e), e, e.__traceback__)
         
     def handle_client_read(self, cl:Client):
         '''
@@ -61,17 +65,16 @@ class MailServer(object):
             self.logger.log(level=logging.WARNING, msg=f'Timeout on client read')
             self.sock.close()
             return
-        
-        # print(line)
+
         current_state = cl.machine.state
 
         if current_state == HELO_STATE:
             HELO_matched = re.search(HELO_pattern, line)
             if HELO_matched:
-                command     = HELO_matched.group(1)
-                domain      = HELO_matched.group(2) or "unknown"
-                cl.mail.helo_command     = command
-                cl.mail.domain   = domain
+                command = HELO_matched.group(1)
+                domain  = HELO_matched.group(2) or "unknown"
+                cl.mail.helo_command = command
+                cl.mail.domain = domain
                 cl.machine.HELO(cl.socket, cl.socket.address, domain)
                 return
         
@@ -83,43 +86,46 @@ class MailServer(object):
                 return
         
         elif current_state == RCPT_TO_STATE:
-            mail_to = re.findall(RCPT_TO_pattern, line)
-            
-            if len(mail_to) > 0:
-                for m in mail_to:
-                    cl.mail.to.append(m)
-            cl.machine.RCPT_TO(cl.socket, mail_to)
-            return         
-
-        elif current_state == DATA_STATE:
-            if not cl.data_start_already_matched:
-                # check other recepients
-                mail_to = re.findall(RCPT_TO_pattern, line)
-                if len(mail_to) > 0:
-                    for m in mail_to:
-                        cl.mail.to.append(m)
-                    cl.machine.ANOTHER_RECEPIENT(cl.socket, mail_to)
-                else:
-                    cl.data_start_already_matched = True
-                    DATA_start_matched = re.search(DATA_start_pattern, line)
-                    if DATA_start_matched:
-                        data = DATA_start_matched.group(1)
-                        if data:
-                            cl.mail.body += data
-                        cl.machine.DATA_start(cl.socket)    # Starting
+            RCPT_TO_matched = re.search(RCPT_TO_pattern, line)
+            if RCPT_TO_matched:
+                mail_to = RCPT_TO_matched.group(1)
+                cl.mail.to.append(mail_to)
+                cl.machine.RCPT_TO(cl.socket, mail_to)
                 return
-            else:
+        
+        elif current_state == DATA_STATE:
+            if cl.data_start_already_matched:
                 DATA_end_matched = re.search(DATA_end_pattern, line)
                 if DATA_end_matched:
                     data = DATA_end_matched.group(1)
                     if data:
                         cl.mail.body += data
-                    cl.machine.DATA_end(cl.socket)
-                    cl.mail.to_file()           # Ending
-                else:
-                    cl.mail.body += line        # Processing
+                    cl.machine.DATA_end(cl.socket)      # ending
+                    cl.mail.to_file()
+                    cl.data_start_already_matched=False
+                else:  
+                    cl.mail.body += line                # processing
                     cl.machine.DATA_additional(cl.socket)
-                return
+            else:
+                # check exist other recepients firstly
+                RCPT_TO_matched = re.search(RCPT_TO_pattern, line)
+                if RCPT_TO_matched:
+                    mail_to = RCPT_TO_matched.group(1)
+                    cl.mail.to.append(mail_to)
+                    cl.machine.ANOTHER_RECEPIENT(cl.socket, mail_to)
+                    return
+                
+                # data start secondly
+                DATA_start_matched = re.search(DATA_start_pattern, line)
+                if DATA_start_matched:
+                    data = DATA_start_matched.group(1)
+                    if data:
+                        cl.mail.body += data
+                    cl.machine.DATA_start(cl.socket)    # starting
+                    cl.data_start_already_matched = True
+                else:
+                    pass    #TODO: incorrect commands to message to client
+            return
         
         QUIT_matched = re.search(QUIT_pattern, line)
         if QUIT_matched:
@@ -130,7 +136,10 @@ class MailServer(object):
         RSET_matched = re.search(RSET_pattern, line)
         if RSET_matched:
             cl.machine.RSET(cl.socket)
-            return
+        else:
+            pass
+        # cl.socket.send(f'500 Unrecognised command {line}\n'.encode())
+        # print('500 Unrecognised command')
 
     def handle_client_write(self, cl:Client):
         current_state = cl.machine.state
@@ -157,23 +166,36 @@ class MailServer(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.sock.close()
+        for p in self.processes:
+            p.terminate()
+        # for p in self.processes:
+        #     p.join(timeout=2)
+        self.logger.terminate()
+        # self.logger.join(timeout=2)
 
-def thread_socket(serv:MailServer):
-    try:
-        while True:
-            client_sockets = serv.clients.sockets()
-            rfds, wfds, errfds = select.select([serv.sock] + client_sockets, client_sockets, [], 5)
-            for fds in rfds:
-                if fds is serv.sock:
-                    try:
+class WorkingProcess(multiprocessing.Process):
+    def __init__(self, serv:MailServer, *args, **kwargs):
+        super(WorkingProcess, self).__init__(*args, **kwargs)
+        self.active = True
+        self.server = serv
+        self.timeouts = 1
+    
+    def terminate(self) -> None:
+        self.active = False
+    
+    def run(self):
+        try:
+            while self.active:  #for make terminate() work
+                client_sockets = self.server.clients.sockets()
+                rfds, wfds, errfds = select.select([self.server.sock] + client_sockets, client_sockets, [], self.timeouts)
+                for fds in rfds:
+                    if fds is self.server.sock:
                         connection, client_address = fds.accept()
-                        client = Client(socket=ClientSocket(connection, client_address), logdir=serv.logdir)
-                        serv.clients[connection] = client
-                    except socket.timeout:
-                        pass
-                else:
-                    serv.handle_client_read(serv.clients[fds])
-            for fds in wfds:
-                serv.handle_client_write(serv.clients[fds])
-    except ValueError:
-        pass
+                        client = Client(socket=ClientSocket(connection, client_address), logdir=self.server.logdir)
+                        self.server.clients[connection] = client
+                    else:
+                        self.server.handle_client_read(self.server.clients[fds])
+                for fds in wfds:
+                    self.server.handle_client_write(self.server.clients[fds])
+        except (KeyboardInterrupt, ValueError, socket.timeout) as e:
+            self.terminate()
