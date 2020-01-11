@@ -7,7 +7,9 @@ from client_collection import ClientsCollection
 from client import Client
 from client_socket import ClientSocket
 from state import *
-from common.custom_logger_proc import QueueProcessLogger
+# from common.custom_logger_proc import QueueProcessLogger
+from common.logger_threads import CustomLogHandler
+import sys
 
 class MailServer(object):
     def __init__(self, host='localhost', port=2556, processes=5, logdir='logs'):
@@ -17,7 +19,12 @@ class MailServer(object):
         self.processes_cnt = processes
         self.processes = []
         self.logdir = logdir
-        self.logger = QueueProcessLogger(filename=f'{logdir}/log.log')
+        # self.logger = QueueProcessLogger(filename=f'{logdir}/log.log')
+        logger = logging.getLogger()
+        logger.addHandler(CustomLogHandler(f'{logdir}/log.log'))
+        logger.setLevel(logging.DEBUG)
+        self.logger = logger
+
 
     def __enter__(self):
         self.socket_init()
@@ -131,7 +138,7 @@ class MailServer(object):
         if QUIT_matched:
             cl.machine.QUIT(cl.socket)
             return
-        
+
         # Transition possible from any states
         RSET_matched = re.search(RSET_pattern, line)
         if RSET_matched:
@@ -168,9 +175,9 @@ class MailServer(object):
         self.sock.close()
         for p in self.processes:
             p.terminate()
-        # for p in self.processes:
+        # for p in self.processes:          -- for process
         #     p.join(timeout=2)
-        self.logger.terminate()
+        # self.logger.terminate()           -- for thread
         # self.logger.join(timeout=2)
 
 class WorkingProcess(multiprocessing.Process):

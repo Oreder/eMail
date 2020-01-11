@@ -22,6 +22,7 @@ class QueueProcessLogger(multiprocessing.Process):
 
     def terminate(self):
         self.active = False
+        
     def log(self, level, msg):
         self.queue.put_nowait('{}:{}'.format(level, msg))
     def run(self):
