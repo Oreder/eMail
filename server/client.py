@@ -13,3 +13,8 @@ class Client():
         self.machine = SMTP_FSM(socket.address, logdir=logdir)
         self.mail = Mail(to=[])
         self.data_start_already_matched=False
+        self.flag = False
+
+    def close(self) -> None:
+        if self.flag:
+            self.socket.close()

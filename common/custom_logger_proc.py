@@ -50,7 +50,7 @@ class QueueProcessLogger(multiprocessing.Process):
 
 if __name__ == '__main__':
     logger=QueueProcessLogger(filename='../logs/process_logging.log')
-    logger.log(logging.INFO,'123')
+    logger.log(logging.INFO, '123')
 
     while True:
         logger.log(logging.INFO, '123')
