@@ -63,16 +63,3 @@ class CustomLogHandler(logging.Handler):
     def close(self):
         self._handler.close()
         logging.Handler.close(self)
-
-
-
-if __name__ == '__main__':
-
-    logger = logging.getLogger()
-    logger.addHandler(CustomLogHandler('../logs/logging.log'))
-    logger.setLevel(logging.DEBUG)
-
-    logger.info('123')
-    while True:
-        logger.info('123')
-        sleep(2)

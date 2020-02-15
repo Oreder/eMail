@@ -36,10 +36,10 @@ CODE TRANSFER NOTE: The quoted-printable and base64 converters are designed so t
 
 ## TODOs
 + Multiple recipients (100%)
-+ Graceful shutdown (!)
-+ Big mails (90%)
++ Graceful shutdown (Ok)
++ Big mails (99%)
 + Tests (100%)
-+ Fast sending and receiving mails (0%) 
++ Fast sending and receiving mails (100%)
 
 ## Notices
 1. Our server is not using like fork() works. Here, each running process uses your own select. Therefore, in order to terminate a single job by connection, we have to close all sockets in each process. It is the main idea of graceful shutdown. 
@@ -49,4 +49,4 @@ CODE TRANSFER NOTE: The quoted-printable and base64 converters are designed so t
     - Second step: Check if this socket is preparing to read?
     - Third step: If it does not prepare, that means we need to close owner process, and write to sigint worker remaining datas.
     - Remember: otherwise, we can use pipe instead of a socket.
-4. Last TODO causes mostly by using regular expressions!
+4. Last TODO causes mostly by using regular expressions! It is fixed!

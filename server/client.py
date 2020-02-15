@@ -2,7 +2,6 @@ from SMTP_FSM import *
 from client_socket import ClientSocket
 from common.mail import Mail
 
-
 class Client():
     '''
     There are two states for data: 1 - we wait start data command "DATA", 2 - data end command "." or additional data.
@@ -13,8 +12,3 @@ class Client():
         self.machine = SMTP_FSM(socket.address, logdir=logdir)
         self.mail = Mail(to=[])
         self.data_start_already_matched=False
-        self.flag = False
-
-    def close(self) -> None:
-        if self.flag:
-            self.socket.close()

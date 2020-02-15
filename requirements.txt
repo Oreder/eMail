@@ -5,3 +5,4 @@ pygraphviz
 transitions
 dnspython
 PyPDF2
+psutil
