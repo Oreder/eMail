@@ -2,7 +2,6 @@ from SMTP_FSM import *
 from client_socket import ClientSocket
 from common.mail import Mail
 
-
 class Client():
     '''
     There are two states for data: 1 - we wait start data command "DATA", 2 - data end command "." or additional data.

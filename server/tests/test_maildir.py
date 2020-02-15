@@ -11,14 +11,6 @@ except (ModuleNotFoundError, ImportError) as e:
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
     from common.mail import Mail
 
-def test_maildir_duplicate():
-    """
-    Simple emails to test
-    """
-    _mail = Mail(to=["a@b.c", "a@b.c", "a@b.c", "A@b.c"])
-    assert _mail.to_file()[0] == 432
-
-
 def test_maildir_oversize():
     emails = ["a{}@b.c".format(i) for i in range(0, 200)]
     _mail = Mail(to=emails)

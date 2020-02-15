@@ -2,15 +2,11 @@ import os
 import re
 import uuid
 from dataclasses import dataclass
-
 from server_config import DEFAULT_USER_DIR, SERVER_DOMAIN, DEFAULT_SUPR_DIR, MAX_RECIPIENTS
-from state import RE_EMAIL_ADDRESS
-from server.state import domain_pattern
 
 @dataclass
 class Mail():
     to:list
-    # cc:list = []
     body:str = ''
     from_:str = ''
     domain:str = ''
@@ -19,12 +15,15 @@ class Mail():
 
     @property
     def mail(self):
-        mail = f"{self.helo_command}:<{self.domain}>\r\n"
-        mail+= f"FROM:<{self.from_}>\r\n"
-        for i in self.to:
-            mail+= f"TO:<{i}>\r\n"
-        mail+= "\r\n"
-        mail+= self.body
+        mail  = f"{self.helo_command.upper()}: {self.domain}\r\n"
+        mail += f"FROM: {self.from_}\r\n"
+        
+        self.to = list(set(self.to))
+        mail += f"TO: {self.to[0]}\r\n"
+        if len(self.to) > 1:
+            mail += f"CC: {'; '.join(self.to[1:])}\r\n"
+        
+        mail += self.body
         return mail
 
     def to_file(self, file_path=None):
@@ -34,17 +33,14 @@ class Mail():
 
         targets = self.to
         
-        # Check duplicate adresses
-        if len(targets) != len(set(targets)):
-            return (432, "Recipient’s incoming mail queue has been stopped")
         # Check max recipients
-        elif len(targets) > MAX_RECIPIENTS:
+        if len(targets) > MAX_RECIPIENTS:
             return (452, 'Too many emails sent or too many recipients')
         else:
             # Select the first one, which is non-local to save to maildir
             nonLocalFound = False
             for target in targets:
-                tmp = target.split('@')
+                tmp = target.lower().split('@')
                 user, domain = tmp[0], tmp[1]
 
                 # TODO: new, cur, tmp
@@ -65,18 +61,5 @@ class Mail():
 
     @classmethod
     def from_file(cls, filepath):
-        with open(filepath, 'r') as f:
-            helo_string = f.readline()
-            from_ = f.readline()
-            to = f.readline()           # TODO: multiple recipients (client)
-
-            domain_matched = re.search(domain_pattern, to)
-            if domain_matched:
-                domain = domain_matched.group(1) or "unknown"
-            else:
-                domain = 'unknown'
-
-            f.readline()
-            body = f.readlines()
-
-        return cls(helo_command=helo_string, from_=from_, to=to, body=body, domain=domain)
+        # for client part
+        pass

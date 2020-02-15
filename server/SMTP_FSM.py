@@ -1,13 +1,7 @@
 import socket
 import logging
 from state import *
-try:
-    from common.custom_logger_proc import QueueProcessLogger
-except (ModuleNotFoundError, ImportError) as e:
-    import sys
-    import os
-
-    from custom_logger_proc import QueueProcessLogger
+from common.custom_logger_proc import QueueProcessLogger
 from transitions import Machine
 from transitions.extensions import GraphMachine as gMachine
 
@@ -17,7 +11,6 @@ class SMTP_FSM(object):
         self.logger = QueueProcessLogger(filename=f'{logdir}/fsm.log')
         self.machine = self.init_machine()
 
-        # self.init_transition('GREETING'       , GREETING_STATE , GREETING_WRITE_STATE )
         self.init_transition('HELO'           , HELO_STATE     , HELO_WRITE_STATE     )
         self.init_transition('MAIL_FROM'      , MAIL_FROM_STATE, MAIL_FROM_WRITE_STATE)
         self.init_transition('RCPT_TO'        , RCPT_TO_STATE  , RCPT_TO_WRITE_STATE  )
@@ -54,10 +47,10 @@ class SMTP_FSM(object):
         )
 
     def GREETING_handler(self, socket):
-        self.logger.log(level=logging.DEBUG, msg="220 SMTP GREETING FROM 0.0.0.0.0.0.1\n")
+        self.logger.log(level=logging.DEBUG, msg="220 SMTP GREETING OK")
 
-    def GREETING_write_handler(self, socket):
-        socket.send("220 SMTP GREETING FROM 0.0.0.0.0.0.1\n".encode())
+    def GREETING_write_handler(self, socket:socket.socket):
+        socket.send("220 SMTP GREETING OK\n".encode())
 
     def HELO_handler(self, socket, address, domain):
         self.logger.log(level=logging.DEBUG, msg="domain: {} connected".format(domain))
@@ -65,45 +58,44 @@ class SMTP_FSM(object):
     def HELO_write_handler(self, socket:socket.socket, address, domain):
         socket.send("250 {} OK \n".format(domain).encode())
 
-    def MAIL_FROM_handler(self, socket, email):
-        self.logger.log(level=logging.DEBUG, msg="f: {} mail from".format(email))
+    def MAIL_FROM_handler(self, socket, address):
+        self.logger.log(level=logging.DEBUG, msg=f"From: {address}")
 
-    def MAIL_FROM_write_handler(self, socket:socket.socket, email):
-        socket.send("250 2.1.0 Ok \n".encode())
+    def MAIL_FROM_write_handler(self, socket:socket.socket, address):
+        socket.send("250 Checking header OK\n".encode())
 
-    def RCPT_TO_handler(self, socket, email):
-        self.logger.log(level=logging.DEBUG, msg="f: {} mail to".format(email))
+    def RCPT_TO_handler(self, socket, address):
+        self.logger.log(level=logging.DEBUG, msg=f"To: {address}")
 
-    def ANOTHER_RECEPIENT_handler(self, socket, email):
-        self.logger.log(level=logging.DEBUG, msg="f: {} mail to".format(email))
+    def ANOTHER_RECEPIENT_handler(self, socket, address):
+        self.logger.log(level=logging.DEBUG, msg=f"CC: {address}")
         
-    def RCPT_TO_write_handler(self, socket:socket.socket, email):
-        socket.send("250 2.1.5 Ok \n".encode())
+    def RCPT_TO_write_handler(self, socket:socket.socket, address):
+        socket.send("250 Accept writing OK\n".encode())
 
     def DATA_start_handler(self, socket):
-        self.logger.log(level=logging.DEBUG, msg="Data started")
+        self.logger.log(level=logging.DEBUG, msg="Accept sending OK")
     
     def DATA_start_write_handler(self, socket:socket.socket):
-        socket.send("354 Send message content; end with <CRLF>.<CRLF>\n".encode())
+        socket.send("354 Sending process starts\n".encode())
 
     def DATA_additional_handler(self, socket):
         self.logger.log(level=logging.DEBUG, msg="Additional data")
 
     def DATA_end_handler(self, socket):
-        self.logger.log(level=logging.DEBUG, msg="Data end")
+        self.logger.log(level=logging.DEBUG, msg="Sending process ends")
     
     def DATA_end_write_handler(self, socket:socket.socket, filename):
-        socket.send(f"250 Ok: queued as {filename}\n".encode())
+        socket.send(f"250 Sending attachment(s) {filename}\n".encode())
 
     def QUIT_handler(self, socket:socket.socket):
-        self.logger.log(level=logging.DEBUG, msg='Disconnecting..\n')
+        self.logger.log(level=logging.DEBUG, msg="Disconnect..\n")
 
     def QUIT_write_handler(self, socket:socket.socket):
-        socket.send("221 Left conversation\n".encode())
-        socket.close()
+        socket.send("221 QUIT OK\n".encode())
 
     def RSET_handler(self, socket):
-        self.logger.log(level=logging.DEBUG, msg=f"Rsetted \n")
+        self.logger.log(level=logging.DEBUG, msg=f"Reseting connection..\n")
 
-    def RSET_write_handler(self, socket):
-        socket.send(f"250 OK \n".encode())
+    def RSET_write_handler(self, socket:socket.socket):
+        socket.send(f"250 Accept writing OK\n".encode())

@@ -1,5 +1,5 @@
 import socket
-from server_config import READ_TIMEOUT
+from server_config import READ_TIMEOUT, BYTES_TRANSFER_PER_TIME
 
 class ClientSocket(object):
     def __init__(self, connection, address):
@@ -7,7 +7,7 @@ class ClientSocket(object):
         self.address = address
 
     def readbytes(self):
-        bufferSize = 4096
+        bufferSize = BYTES_TRANSFER_PER_TIME
         self.connection.settimeout(READ_TIMEOUT)
         return self.connection.recv(bufferSize).decode()
 

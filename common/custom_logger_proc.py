@@ -5,7 +5,6 @@ from time import sleep
 # ============================================================================
 # Define Log Handler
 # ============================================================================
-
 class QueueProcessLogger(multiprocessing.Process):
     """multiprocessing log handler
 
@@ -13,7 +12,7 @@ class QueueProcessLogger(multiprocessing.Process):
     to log to the same file by using a queue.
 
     """
-    def __init__(self, filename,*args, **kwargs):
+    def __init__(self, filename, *args, **kwargs):
         self.filename = filename
         super(QueueProcessLogger, self).__init__()
         self.queue = multiprocessing.Queue()
@@ -24,7 +23,8 @@ class QueueProcessLogger(multiprocessing.Process):
         self.active = False
         
     def log(self, level, msg):
-        self.queue.put_nowait('{}:{}'.format(level, msg))
+        self.queue.put_nowait(f"{level}:{msg}")
+
     def run(self):
         logger = logging.getLogger()
         handler = logging.FileHandler(filename=self.filename)
@@ -46,12 +46,3 @@ class QueueProcessLogger(multiprocessing.Process):
             except Exception:
                 import sys, traceback
                 traceback.print_exc(file=sys.stderr)
-        # self.queue.close()
-
-if __name__ == '__main__':
-    logger=QueueProcessLogger(filename='../logs/process_logging.log')
-    logger.log(logging.INFO,'123')
-
-    while True:
-        logger.log(logging.INFO, '123')
-        sleep(2)
